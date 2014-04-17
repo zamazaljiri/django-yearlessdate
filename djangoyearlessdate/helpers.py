@@ -1,5 +1,6 @@
 import calendar
 
+
 class YearlessDate(object):
     "An object representing a date in a year (but not a year itself).  Suitable especially for birthdays, anniversaries etc."
     def __init__(self, day, month):
@@ -16,7 +17,8 @@ class YearlessDate(object):
             raise Exception('Cannot create DateInYear object with a month value of %d.' % self.month)
 
         if self.day < 1 or self.day > month_days:
-             raise Exception('Cannot create DateInYear object - invalid day value %d for month %s.' % (self.day, self.month_name))
+             raise Exception('Cannot create DateInYear object - invalid day value %d for month %s.' % (self.day,
+                                                                                                       self.month_name))
 
     @property
     def month_name(self):
@@ -45,3 +47,6 @@ class YearlessDate(object):
 
     def __lt__(self, other):
         return not self >= other
+
+    def to_json(self):
+        return '%02d%02d' % (self.month, self.day)
