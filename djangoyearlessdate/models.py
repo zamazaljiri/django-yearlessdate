@@ -1,40 +1,24 @@
+import datetime
+
 from django.db import models
+from django.core import exceptions
+from django.utils.translation import ugettext_lazy as _
 
-from helpers import YearlessDate
 import forms
+from helpers import value_is_MMDD_date
 
 
-class YearlessDateField(models.Field):
+class YearlessDateField(models.CharField):
     "A model field for storing dates without years"
     description = "A date without a year, for use in things like birthdays"
 
-    __metaclass__ = models.SubfieldBase
+    default_error_messages = {
+        'invalid_date': _('Invalid date'),
+    }
 
     def __init__(self, *args, **kwargs):
         kwargs['max_length'] = 4
         super(YearlessDateField, self).__init__(*args, **kwargs)
-
-    def to_python(self, value):
-        if isinstance(value, YearlessDate):
-            return value
-        if not value:
-            return None
-        # The string case.
-        return YearlessDate(value[2:], value[:2])
-    
-    def get_prep_value(self, value):
-        "The reverse of to_python, for inserting into the database"
-        value = self.to_python(value)
-        if value is not None:
-            return ''.join(["%02d" % i for i in (value.month, value.day)])
-    
-    def get_internal_type(self):
-        return 'CharField'
-    
-    def value_to_string(self, obj):
-        "For serialization"
-        value = self._get_val_from_obj(obj)
-        return self.get_prep_value(value)
     
     def formfield(self, **kwargs):
         # This is a fairly standard way to set up some defaults
@@ -42,6 +26,18 @@ class YearlessDateField(models.Field):
         defaults = {'form_class': forms.YearlessDateField}
         defaults.update(kwargs)
         return super(YearlessDateField, self).formfield(**defaults)
+
+    def to_python(self, value):
+        if value is None or value == '':
+            return value
+
+        if value_is_MMDD_date(value):
+            return value
+        else:
+            raise exceptions.ValidationError(
+                self.error_messages['invalid_date'],
+                code='invalid',
+            )
 
 
 class YearField(models.IntegerField):

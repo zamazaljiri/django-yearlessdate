@@ -1,32 +1,10 @@
-import calendar
-
 from django import forms
 from django.forms.widgets import MultiWidget, TextInput
 from django.core.validators import ValidationError
 from django.forms.widgets import Select
 from django.utils.translation import ugettext_lazy as _
 
-from helpers import YearlessDate
-
-
-DAY_CHOICES =  tuple([('','---------' )] + [(i,i) for i in range(1,32)])
-MONTH_CHOICES = tuple([('','---------' )] + [(i, calendar.month_name[i]) for i in range(1,13)])
-
-    
-class YearlessDateSelect(MultiWidget):
-    def __init__(self, *args, **kwargs):
-        widgets = (
-            Select(attrs={'class': 'select-dateinyear-day'}, choices=DAY_CHOICES),
-            Select(attrs={'class': 'select-dateinyear-month'}, choices=MONTH_CHOICES)
-        )
-        super(YearlessDateSelect, self).__init__(widgets=widgets, *args, **kwargs)
-
-    def decompress(self, value):
-        if value is None:
-            return [None,None]
-        if not isinstance(value, YearlessDate):
-            value = YearlessDate(value[2:], value[:2])
-        return [value.day, value.month]
+from helpers import value_is_MMDD_date
 
 
 class YearlessDateInput(TextInput):
@@ -40,34 +18,34 @@ class YearlessDateInput(TextInput):
     def _format_value(self, value):
         if value is None:
             return ''
-        if not isinstance(value, YearlessDate):
-            if len(value) < 4:
-                return ''
-            value = YearlessDate(value[2:], value[:2])
-        return '%02d.%02d.' % (value.day, value.month)
+        try:
+            return '%02d.%02d.' % (int(value[2:]), int(value[:2]))
+        except:
+            return value
 
     def value_from_datadict(self, data, files, name):
         value = data.get(name, None)
         if value is None or len(value) == 0:
-            return ['', '']
+            return None
         list = value.split('.')
         if len(list) > 1:
-            return [list[0], list[1]]
+            return '%s%s' % (list[1], list[0])
         return value
 
 
-class YearlessDateField(forms.Field):
+class YearlessDateField(forms.CharField):
     widget = YearlessDateInput
+
+    def __init__(self, max_length=None, min_length=None, *args, **kwargs):
+        super(YearlessDateField, self).__init__(max_length=6, min_length=None, *args, **kwargs)
     
     def clean(self, value):
-        if value == ['', '']:
-            #If the values are both None, trigger the default validation for null
-            super(YearlessDateField, self).clean(None)
+        if value is None or len(value) == 0:
+            return super(YearlessDateField, self).clean(None)
+        elif value_is_MMDD_date(value):
+            return value
         else:
-            try:
-                return YearlessDate(*value)
-            except:
-                raise ValidationError(_('Invalid date'))
+            raise ValidationError(_('Invalid date'))
 
 
 class YearField(forms.Field):
